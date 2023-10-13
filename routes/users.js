@@ -1,9 +1,28 @@
+const express = require("express");
+const router = express.Router();
+const User = require("../models/message");
+
+const ExpressError = require("../expressError");
+const { ensureLoggedIn, ensureCorrectUser } = require("../middleware/auth");
+const { SECRET_KEY, BCRYPT_WORK_FACTOR } = require("../config");
+
 /** GET / - get list of users.
  *
  * => {users: [{username, first_name, last_name, phone}, ...]}
  *
  **/
 
+router.get("/", ensureLoggedIn, async (req, res, next) => {
+  try {
+    const users = await User.all();
+    if (users) {
+      throw new ExpressError("no users found", 404);
+    }
+    return res.json({ users });
+  } catch (err) {
+    return next(err);
+  }
+});
 
 /** GET /:username - get detail of users.
  *
@@ -11,6 +30,16 @@
  *
  **/
 
+router.get("/:username", ensureCorrectUser, async (req, res, next) => {
+  try {
+    const user = await User.get(req.params.username);
+    if (!user)
+      throw new ExpressError(`User ${req.params.username} not found`, 404);
+    return res.json({ user });
+  } catch (err) {
+    return next(err);
+  }
+});
 
 /** GET /:username/to - get messages to user
  *
@@ -22,6 +51,20 @@
  *
  **/
 
+router.get("/:username/to", ensureCorrectUser, async (req, res, next) => {
+  try {
+    const userTo = await User.messagesTo(req.params.username);
+    if (!userTo) {
+      throw new ExpressError(
+        `no messages found for username ${req.params.username}`,
+        404
+      );
+    }
+    return res.json({ messages: userTo });
+  } catch (err) {
+    return next(err);
+  }
+});
 
 /** GET /:username/from - get messages from user
  *
@@ -32,3 +75,20 @@
  *                 to_user: {username, first_name, last_name, phone}}, ...]}
  *
  **/
+
+router.get("/:username/from", ensureCorrectUser, async (req, res, next) => {
+  try {
+    const userFrom = await User.messagesFrom(req.params.username);
+    if (!userTo) {
+      throw new ExpressError(
+        `no messages found for username ${req.params.username}`,
+        404
+      );
+    }
+    return res.json({ messages: userFrom });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+module.exports = router;
